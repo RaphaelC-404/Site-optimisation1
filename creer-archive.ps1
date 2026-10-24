@@ -23,7 +23,16 @@ try {
 } finally { Pop-Location }
 
 if (Test-Path $Sortie) { Remove-Item -Force $Sortie }
-Compress-Archive -Path (Join-Path $etape '*') -DestinationPath $Sortie
+# Chemins internes avec « / » (Compress-Archive de PowerShell 5.1 met des « \ »,
+# mal décompressés sous macOS et Linux).
+Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+$zip = [System.IO.Compression.ZipFile]::Open($Sortie, 'Create')
+try {
+  Get-ChildItem $etape -Recurse -File | ForEach-Object {
+    $nom = $_.FullName.Substring($etape.Length + 1).Replace('\', '/')
+    [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $_.FullName, $nom) | Out-Null
+  }
+} finally { $zip.Dispose() }
 Remove-Item -Recurse -Force $etape
 
 $captures = @(Get-ChildItem (Join-Path $racine 'audit') -Filter *.png).Count
