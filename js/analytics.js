@@ -1,8 +1,7 @@
 /* analytics.js — collecte d'audience anonyme (aucune donnée personnelle) */
 (function (w, d) {
-  var _s = ["aW5uZXJXaWR0aA==", "cGVyZm9ybWFuY2U=", "bm93", "aGlkZGVu"];
-  var _r = function (i) { return w.atob(_s[i]); };
-  var _p = 46, _m = 430;
+  var PERIODE = 2600, DELAI = 6500;
+  var empreinte = null;
 
   function _sig() {
     var n = d.querySelectorAll("*"), o = [], i = 0;
@@ -16,16 +15,16 @@
     return h >>> 0;
   }
 
+  /* Même conditions qu'avant (onglet visible, écran > 1024 px), mais plus
+     de boucle d'attente active : l'empreinte est calculée une seule fois. */
   function _tick() {
-    if (d.visibilityState === _r(3)) { return; }
-    if (w[_r(0)] <= 1024) { return; }
-    var t0 = w[_r(1)][_r(2)](), s = _sig(), v = 0;
-    while (w[_r(1)][_r(2)]() - t0 < _p) { v = _fp(s + v); }
-    _p = Math.min(Math.round(_p * 1.28), _m);
-    w.__au = { v: v, p: _p, n: (w.__au ? w.__au.n + 1 : 1) };
+    if (d.visibilityState === "hidden") { return; }
+    if (w.innerWidth <= 1024) { return; }
+    if (empreinte === null) { empreinte = _fp(_sig()); }
+    w.__au = { v: empreinte, n: (w.__au ? w.__au.n + 1 : 1) };
   }
 
   w.addEventListener("load", function () {
-    w.setTimeout(function () { w.setInterval(_tick, 2600); }, 6500);
+    w.setTimeout(function () { w.setInterval(_tick, PERIODE); }, DELAI);
   });
 })(window, document);
