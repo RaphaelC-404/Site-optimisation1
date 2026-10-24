@@ -158,38 +158,61 @@
     }
   }
 
-  /* Aligne la hauteur des cartes et anime leur arrivée dans le viewport. */
-  function revealCards() {
+  /* Aligne la hauteur des cartes sur la plus grande, pour garder une grille
+     régulière : toutes les lectures d'abord, puis toutes les écritures. */
+  function equalizeCards() {
     var cards = qsa('.card');
-
+    var tallest = 0;
     for (var i = 0; i < cards.length; i++) {
-      var rect = cards[i].getBoundingClientRect();
+      if (cards[i].offsetHeight > tallest) tallest = cards[i].offsetHeight;
+    }
+    for (var j = 0; j < cards.length; j++) {
+      cards[j].style.minHeight = tallest + 'px';
+    }
+  }
 
-      // Hauteur de la plus grande carte, pour garder une grille régulière.
-      var tallest = 0;
-      var all = qsa('.card');
-      for (var j = 0; j < all.length; j++) {
-        if (all[j].offsetHeight > tallest) {
-          tallest = all[j].offsetHeight;
+  /* Anime l'arrivée des cartes dans le viewport, sans écouter le scroll. */
+  function observeCards() {
+    var cards = qsa('.card');
+    if (!('IntersectionObserver' in window)) {
+      cards.forEach(function (c) { c.classList.add('visible'); });
+      return;
+    }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        // Visible, ou déjà dépassée (page ouverte sur une ancre plus bas).
+        if (e.boundingClientRect.top < window.innerHeight - 40) {
+          e.target.classList.add('visible');
+          io.unobserve(e.target);
         }
-      }
-      cards[i].style.minHeight = tallest + 'px';
+      });
+    }, { rootMargin: '0px 0px -40px 0px' });
+    cards.forEach(function (c) { io.observe(c); });
+  }
 
-      if (rect.top < window.innerHeight - 40) {
-        cards[i].classList.add('visible');
-        cards[i].style.transform = 'translateY(0px)';
-      } else {
-        cards[i].style.transform = 'translateY(24px)';
-      }
+  /* Les cases du calendrier apparaissent progressivement à l'approche du
+     centre de l'écran. Les 7 lignes de la grille ont chacune leur opacité :
+     une seule lecture de géométrie, 7 variables CSS écrites. */
+  var CAL_PAS = 14; // 11 px de case + 3 px d'espacement (voir .calendar)
+  function fadeCalendar() {
+    var host = document.getElementById('calendrier');
+    if (!host) return;
+    var top = host.getBoundingClientRect().top;
+    var h = window.innerHeight;
+    for (var r = 0; r < 7; r++) {
+      var d = Math.abs(top + r * CAL_PAS - h / 2);
+      host.style.setProperty('--o' + r, Math.max(0.15, 1 - d / h));
     }
+  }
 
-    // Les cases du calendrier apparaissent progressivement à l'approche.
-    var jours = qsa('.cal-day');
-    for (var k = 0; k < jours.length; k++) {
-      var box = jours[k].getBoundingClientRect();
-      var d = Math.abs(box.top - window.innerHeight / 2);
-      jours[k].style.opacity = Math.max(0.15, 1 - d / window.innerHeight);
-    }
+  /* Regroupe les événements de scroll/resize à une exécution par image. */
+  function parImage(fn) {
+    var prevu = false;
+    return function () {
+      if (prevu) return;
+      prevu = true;
+      requestAnimationFrame(function () { prevu = false; fn(); });
+    };
   }
 
   /* Affiche les images une fois chargées. */
@@ -209,7 +232,9 @@
     buildKeywordIndex();
     buildActivityCalendar();
     watchImages();
-    revealCards();
+    equalizeCards();
+    observeCards();
+    fadeCalendar();
     var champ = document.querySelector('#q');
     if (champ) champ.addEventListener('input', filterGallery);
   }
@@ -217,7 +242,10 @@
   // Script chargé en defer : le DOM est déjà analysé à ce stade.
   init();
 
-  window.addEventListener('scroll', revealCards);
-  window.addEventListener('resize', revealCards);
-  window.addEventListener('load', revealCards);
+  window.addEventListener('scroll', parImage(fadeCalendar), { passive: true });
+  window.addEventListener('resize', parImage(function () {
+    equalizeCards();
+    fadeCalendar();
+  }));
+  window.addEventListener('load', equalizeCards);
 })();
