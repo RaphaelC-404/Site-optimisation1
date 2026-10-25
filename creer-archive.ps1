@@ -13,7 +13,7 @@ New-Item -ItemType Directory $etape | Out-Null
 
 Push-Location $racine
 try {
-  $fichiers = @(git -c core.quotepath=off ls-files) | Where-Object { $_ -ne 'creer-archive.ps1' }
+  $fichiers = @(git -c core.quotepath=off ls-files) | Where-Object { $_ -notin @('creer-archive.ps1', 'generer-pdf.py') }
   $fichiers += @(Get-ChildItem audit -File | ForEach-Object { "audit/$($_.Name)" })
   foreach ($f in ($fichiers | Sort-Object -Unique)) {
     $dest = Join-Path $etape $f
